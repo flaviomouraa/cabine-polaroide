@@ -1,0 +1,61 @@
+# Compila o APK Android e publica em Releases (cabine-polaroide.apk).
+name: Gerar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["index.html", "docs/**", "android/**", ".github/workflows/apk.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Chave de assinatura (segredos ANDROID_KEYSTORE_B64 e ANDROID_KEYSTORE_PASS, opcionais)
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KP: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          mkdir -p android/keystore
+          if [ -z "$KS" ]; then
+            echo "ASSINATURA=descartável (sem os segredos ANDROID_KEYSTORE_B64/ANDROID_KEYSTORE_PASS; para atualizar será preciso desinstalar antes)" >> "$GITHUB_ENV"
+          else
+            printf '%s' "$KS" | tr -d ' \r\n\t' | base64 -d > android/keystore/cabine.jks 2>/dev/null || true
+            if keytool -list -keystore android/keystore/cabine.jks -storepass "$KP" >/dev/null 2>&1; then
+              FP=$(keytool -list -keystore android/keystore/cabine.jks -storepass "$KP" 2>/dev/null | grep -o 'SHA-256.*' | sed 's/.*: //')
+              echo "ASSINATURA=permanente (SHA-256 $FP)" >> "$GITHUB_ENV"
+            else
+              rm -f android/keystore/cabine.jks
+              echo "ASSINATURA=descartável (a chave ou a senha dos segredos não confere)" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      - name: Compilar
+        working-directory: android
+        env:
+          CABINE_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../cabine-polaroide.apk
+
+      - name: Publicar o APK em Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: Cabine Polaroide (APK ${{ github.run_number }})
+          body: |
+            Baixe o arquivo cabine-polaroide.apk no celular Android e abra para instalar.
+
+            Assinatura: ${{ env.ASSINATURA }}
+          files: cabine-polaroide.apk

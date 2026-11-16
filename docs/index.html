@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#C9770F">
+<meta name="description" content="Tire fotos estilo polaroide com o nome da pessoa e imprima em folhas A4.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Polaroide">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}html{touch-action:manipulation}</style>
+<title>Cabine Polaroide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: uma coluna de trabalho (nova foto) ao lado das folhas A4; em telas estreitas, empilha. */
+:root{
+  --bg:#e8eaed; --surface:#ffffff; --surface-2:#f3f4f6; --fg:#1b1f24; --muted:#5b636e;
+  --line:#d3d7dd; --accent:#c9770f; --accent-fg:#ffffff; --danger:#b3261e;
+  --paper:#ffffff; --paper-shadow:rgba(20,24,30,.14); --cam:#0f1114;
+  --f-display:"Space Grotesk",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-hand:"Caveat","Comic Sans MS",cursive;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15181c; --surface:#1e2227; --surface-2:#272c32; --fg:#eceef1; --muted:#9aa3ae;
+  --line:#353b43; --accent:#f0a73a; --accent-fg:#1b1406; --danger:#f2867e;
+  --paper:#fbfbfa; --paper-shadow:rgba(0,0,0,.5); --cam:#0a0b0d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15181c; --surface:#1e2227; --surface-2:#272c32; --fg:#eceef1; --muted:#9aa3ae;
+  --line:#353b43; --accent:#f0a73a; --accent-fg:#1b1406; --danger:#f2867e;
+  --paper:#fbfbfa; --paper-shadow:rgba(0,0,0,.5); --cam:#0a0b0d; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-size:1.75rem;margin:0;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-size:1.1rem;margin:0}
+.sub{color:var(--muted);margin:2px 0 0;font-size:.9rem}
+.spec{font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px;min-width:0}
+label{font-weight:600;font-size:.9rem}
+input[type=text]{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
+input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:10px 14px;font-weight:600}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btnlike{display:block;text-align:center;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:10px 14px;font-weight:600}
+.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>button{flex:1 1 auto}
+.hint{color:var(--muted);font-size:.85rem;margin:0}
+.msg{font-size:.85rem;color:var(--danger);margin:0}
+.msg.ok{color:var(--muted)}
+
+/* câmera */
+.cam{background:var(--cam);border-radius:12px;padding:14px;display:grid;gap:12px;justify-items:center}
+.viewport{position:relative;width:min(100%,300px);aspect-ratio:47/62;overflow:hidden;border-radius:4px;background:#000}
+.viewport video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.viewport video.mirror{transform:scaleX(-1)}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:5rem;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.flash.go{animation:flash .35s ease-out}
+@keyframes flash{from{opacity:.9}to{opacity:0}}
+.camname{font-family:var(--f-hand);font-size:1.6rem;color:#f4f4f4;line-height:1}
+.shutterrow{display:flex;align-items:center;justify-content:center;gap:22px;width:100%}
+.shutter{width:68px;height:68px;border-radius:50%;background:#fff;border:5px solid #9aa0a8;padding:0}
+.shutter:active{transform:scale(.95)}
+.ghost{background:transparent;border-color:#3a3f46;color:#e6e8eb;font-size:.85rem}
+.chk{display:flex;align-items:center;gap:6px;color:#c9ced5;font-size:.85rem;font-weight:500}
+
+/* confirmação */
+.confirm{display:grid;justify-items:center;gap:14px}
+.confirm img{width:min(100%,240px);box-shadow:0 6px 22px var(--paper-shadow);border-radius:2px}
+
+/* folhas */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;font-weight:500;font-size:.85rem;padding:8px 12px}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.stats{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+.sheetbox{display:grid;gap:6px;min-width:0}
+.sheet{position:relative;width:100%;aspect-ratio:210/297;background:var(--paper);box-shadow:0 4px 18px var(--paper-shadow);border-radius:2px}
+.slot{position:absolute;display:block}
+.slot img{width:100%;height:100%;display:block;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.slot.empty{border:1px dashed #c3c7cd}
+.slot.empty span{position:absolute;inset:0;display:grid;place-items:center;font-size:.7rem;color:#a4a9b0;font-variant-numeric:tabular-nums}
+.sheetlabel{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.list{display:grid;gap:6px;max-height:320px;overflow:auto}
+.item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;background:var(--surface-2)}
+.item img{width:30px;height:auto;border-radius:1px}
+.item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item button{padding:4px 10px;font-size:.8rem;font-weight:500}
+.item button.del{color:var(--danger)}
+.empty-note{color:var(--muted);font-size:.9rem;margin:0}
+details summary{cursor:pointer;font-weight:600;font-size:.9rem}
+@media (prefers-reduced-motion:reduce){.flash.go{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Cabine Polaroide</h1>
+      <p class="sub">Digite o nome, tire a foto e o app monta as folhas A4 para imprimir.</p>
+    </div>
+    <div class="spec">Foto 5,5 × 8,5 cm · Folha A4 21 × 29,7 cm</div>
+  </header>
+
+  <div class="grid">
+    <!-- coluna: nova foto -->
+    <section class="panel" id="capturePanel" aria-labelledby="hNova">
+      <h2 id="hNova">Nova foto</h2>
+
+      <form id="stepName" class="panel" style="padding:0;border:0;background:none">
+        <label for="nameInput">Nome da pessoa</label>
+        <input id="nameInput" type="text" maxlength="40" autocomplete="off" placeholder="Ex.: Ana Beatriz">
+        <button class="primary" type="submit" id="openCamBtn">Abrir câmera</button>
+        <label for="fileInput" class="btnlike" id="fallbackCam" hidden>Usar o app de câmera do celular</label>
+        <p class="hint">O nome aparece pequeno na parte branca de baixo da foto.</p>
+      </form>
+
+      <div id="stepCam" hidden>
+        <div class="cam">
+          <div class="camname" id="camName"></div>
+          <div class="viewport">
+            <video id="video" playsinline muted autoplay></video>
+            <div class="count" id="countdown" hidden></div>
+            <div class="flash" id="flash"></div>
+          </div>
+          <div class="shutterrow">
+            <button class="ghost" type="button" id="switchBtn">Trocar câmera</button>
+            <button class="shutter" type="button" id="shutterBtn" aria-label="Tirar foto"></button>
+            <button class="ghost" type="button" id="cancelCamBtn">Cancelar</button>
+          </div>
+          <label class="chk"><input type="checkbox" id="timerChk"> Esperar 3 segundos</label>
+        </div>
+      </div>
+
+      <div id="stepConfirm" class="confirm" hidden>
+        <img id="confirmImg" alt="Prévia da foto polaroide">
+        <div class="row" style="width:100%">
+          <button type="button" id="retakeBtn">Tirar de novo</button>
+          <button type="button" class="primary" id="keepBtn">Salvar na folha</button>
+        </div>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/*" capture="user" hidden>
+      <p class="msg" id="capMsg" hidden></p>
+
+      <details>
+        <summary>Fotos salvas (<span id="countSaved">0</span>)</summary>
+        <div class="list" id="list" style="margin-top:10px"></div>
+      </details>
+    </section>
+
+    <!-- coluna: folhas -->
+    <section class="panel" aria-labelledby="hFolhas">
+      <div class="toolbar">
+        <div>
+          <h2 id="hFolhas">Folhas A4</h2>
+          <div class="stats" id="stats">0 fotos</div>
+        </div>
+        <div class="row">
+          <div class="seg" role="group" aria-label="Arrumação na folha">
+            <button type="button" id="layMax" aria-pressed="true">11 por folha</button>
+            <button type="button" id="layUp" aria-pressed="false">9, todas em pé</button>
+          </div>
+          <button class="primary" type="button" id="pdfBtn" disabled>Baixar PDF</button>
+        </div>
+      </div>
+      <p class="hint" id="layHint"></p>
+      <p class="msg" id="pdfMsg" hidden></p>
+      <div class="sheets" id="sheets"></div>
+      <p class="hint">Na impressora, escolha <b>tamanho real / 100%</b> (não “ajustar à página”) para a foto sair com 5,5 × 8,5 cm. Cada foto tem a moldura branca da polaroide (4 mm nas laterais e em cima, 1,9 cm embaixo com o nome) e um contorno cinza fino: recorte em cima dele.</p>
+    </section>
+  </div>
+</div>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script>
+(() => {
+// ---------- medidas (mm) ----------
+const PW = 55, PH = 85;              // polaroide
+const BORDER = 4, IMG_W = 47, IMG_H = 62; // área da foto; base branca = 85-4-62 = 19 mm
+const A4W = 210, A4H = 297;
+const GAP = 2;                       // espaço entre polaroides, para cada moldura aparecer separada
+const DPI = 300, PX = DPI / 25.4;    // px por mm na renderização final
+
+// Arrumações. r = girada 90°.
+function buildLayouts(){
+  const max = [];
+  // 2 colunas em pé x 3 linhas (110 x 255) + 1 coluna de 5 deitadas (85 x 275) = 195 x 275 -> 11
+  const totalW = 2*PW + PH + 2*GAP, totalH = 5*PW + 4*GAP;
+  const x0 = (A4W-totalW)/2, y0 = (A4H-totalH)/2;
+  for (let r=0;r<3;r++) for (let c=0;c<2;c++) max.push({x:x0+c*(PW+GAP),y:y0+r*(PH+GAP),w:PW,h:PH,rot:false});
+  for (let r=0;r<5;r++) max.push({x:x0+2*(PW+GAP),y:y0+r*(PW+GAP),w:PH,h:PW,rot:true});
+  const up = [];
+  const G3 = 4;
+  const ux = (A4W-3*PW-2*G3)/2, uy = (A4H-3*PH-2*G3)/2;
+  for (let r=0;r<3;r++) for (let c=0;c<3;c++) up.push({x:ux+c*(PW+G3),y:uy+r*(PH+G3),w:PW,h:PH,rot:false});
+  return {max, up};
+}
+const LAYOUTS = buildLayouts();
+let layoutKey = 'max';
+try { const s = localStorage.getItem('cp-layout'); if (s==='up'||s==='max') layoutKey = s; } catch(e){}
+
+// ---------- armazenamento (IndexedDB, só neste aparelho) ----------
+let photos = []; // {id,name,src,created}
+const DB = {
+  db:null,
+  async open(){
+    if (this.db) return this.db;
+    this.db = await new Promise((res,rej)=>{
+      const r = indexedDB.open('cabine-polaroide',1);
+      r.onupgradeneeded = () => r.result.createObjectStore('photos',{keyPath:'id'});
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return this.db;
+  },
+  async tx(mode, fn){
+    const db = await this.open();
+    return new Promise((res,rej)=>{
+      const t = db.transaction('photos',mode); const st = t.objectStore('photos');
+      const out = fn(st); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error);
+    });
+  },
+  async all(){ try { return (await this.tx('readonly', s=>s.getAll())) || []; } catch(e){ return null; } },
+  async put(p){ try { await this.tx('readwrite', s=>s.put(p)); return true; } catch(e){ return false; } },
+  async del(id){ try { await this.tx('readwrite', s=>s.delete(id)); } catch(e){} }
+};
+let storageOk = true;
+
+// ---------- renderização da polaroide ----------
+const cache = new Map(); // id -> {up:dataURL, rot:dataURL}
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+async function fontsReady(){ try { await document.fonts.load('600 40px "Caveat"'); } catch(e){} }
+
+async function renderPolaroid(p){
+  if (cache.has(p.id)) return cache.get(p.id);
+  await fontsReady();
+  const W = Math.round(PW*PX), H = Math.round(PH*PX);
+  const c = document.createElement('canvas'); c.width=W; c.height=H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0,0,W,H);
+  const img = await loadImg(p.src);
+  g.drawImage(img, BORDER*PX, BORDER*PX, IMG_W*PX, IMG_H*PX);
+  // nome
+  const maxW = IMG_W*PX; let size = 5.2*PX; // ~15 pt
+  g.fillStyle = '#26262e'; g.textAlign='center'; g.textBaseline='middle';
+  do { g.font = `600 ${size}px Caveat, "Comic Sans MS", cursive`; size -= 2; } while (g.measureText(p.name).width > maxW && size > 2.5*PX);
+  const baseTop = (BORDER+IMG_H)*PX, baseH = (PH-BORDER-IMG_H)*PX;
+  g.fillText(p.name, W/2, baseTop + baseH*0.46);
+  // contorno da moldura (também serve de marca de corte)
+  g.strokeStyle = '#a9a9a9'; g.lineWidth = Math.max(1, .25*PX);
+  g.strokeRect(g.lineWidth/2, g.lineWidth/2, W-g.lineWidth, H-g.lineWidth);
+  const up = c.toDataURL('image/jpeg', .92);
+  // versão deitada
+  const r = document.createElement('canvas'); r.width=H; r.height=W;
+  const rg = r.getContext('2d'); rg.translate(H,0); rg.rotate(Math.PI/2); rg.drawImage(c,0,0);
+  const rot = r.toDataURL('image/jpeg', .92);
+  const out = {up, rot}; cache.set(p.id, out); return out;
+}
+
+// ---------- folhas ----------
+const $ = id => document.getElementById(id);
+async function renderSheets(){
+  const slots = LAYOUTS[layoutKey]; const per = slots.length;
+  const nSheets = Math.max(1, Math.ceil(photos.length/per));
+  $('layMax').setAttribute('aria-pressed', layoutKey==='max');
+  $('layUp').setAttribute('aria-pressed', layoutKey==='up');
+  $('layHint').textContent = layoutKey==='max'
+    ? 'Cabem 11 por folha: 6 em pé e 5 deitadas na coluna da direita. É o máximo que cabe sem cortar nenhuma.'
+    : 'Cabem 9 por folha, todas na mesma direção. Sobra mais papel, mas fica mais fácil de recortar.';
+  const nf = photos.length;
+  $('stats').textContent = nf===0 ? 'Nenhuma foto ainda' :
+    `${nf} ${nf===1?'foto':'fotos'} · ${Math.ceil(nf/per)} ${Math.ceil(nf/per)===1?'folha':'folhas'} · ${per} por folha`;
+  $('pdfBtn').disabled = nf===0;
+
+  const host = $('sheets'); const frag = document.createDocumentFragment();
+  for (let s=0;s<nSheets;s++){
+    const box = document.createElement('div'); box.className='sheetbox';
+    const sh = document.createElement('div'); sh.className='sheet';
+    for (let i=0;i<per;i++){
+      const sl = slots[i]; const p = photos[s*per+i];
+      const d = document.createElement('div'); d.className='slot'+(p?'':' empty');
+      Object.assign(d.style,{left:sl.x/A4W*100+'%',top:sl.y/A4H*100+'%',width:sl.w/A4W*100+'%',height:sl.h/A4H*100+'%'});
+      if (p){ const im = document.createElement('img'); im.alt = 'Foto de '+p.name; d.appendChild(im);
+        renderPolaroid(p).then(r=>{ im.src = sl.rot ? r.rot : r.up; }); }
+      else { const sp = document.createElement('span'); sp.textContent = s*per+i+1; d.appendChild(sp); }
+      sh.appendChild(d);
+    }
+    const lb = document.createElement('div'); lb.className='sheetlabel';
+    const used = Math.min(per, Math.max(0, nf - s*per));
+    lb.textContent = `Folha ${s+1} · ${used} de ${per}`;
+    box.append(sh, lb); frag.appendChild(box);
+  }
+  host.replaceChildren(frag);
+  if (nf===0){ const n=document.createElement('p'); n.className='empty-note'; n.textContent='Os espaços tracejados mostram onde cada foto vai entrar. Tire a primeira foto ao lado.'; host.appendChild(n); }
+  renderList();
+}
+function renderList(){
+  $('countSaved').textContent = photos.length;
+  const l = $('list'); l.replaceChildren();
+  if (!photos.length){ const p=document.createElement('p'); p.className='empty-note'; p.textContent='Nenhuma foto salva.'; l.appendChild(p); return; }
+  photos.forEach((p,i)=>{
+    const it = document.createElement('div'); it.className='item';
+    const im = document.createElement('img'); im.alt=''; renderPolaroid(p).then(r=>im.src=r.up);
+    const nm = document.createElement('span'); nm.className='nm'; nm.textContent = `${i+1}. ${p.name}`;
+    const del = document.createElement('button'); del.type='button'; del.className='del'; del.textContent='Apagar';
+    del.addEventListener('click', ()=>{
+      if (del.dataset.armed){ removePhoto(p.id); return; }
+      del.dataset.armed='1'; del.textContent='Confirmar?';
+      setTimeout(()=>{ if(del.isConnected){ delete del.dataset.armed; del.textContent='Apagar'; } }, 3000);
+    });
+    it.append(im,nm,del); l.appendChild(it);
+  });
+}
+async function removePhoto(id){ photos = photos.filter(p=>p.id!==id); cache.delete(id); await DB.del(id); renderSheets(); }
+
+function setLayout(k){ layoutKey=k; try{localStorage.setItem('cp-layout',k);}catch(e){} renderSheets(); }
+$('layMax').addEventListener('click',()=>setLayout('max'));
+$('layUp').addEventListener('click',()=>setLayout('up'));
+
+// ---------- captura ----------
+let stream = null, facing = 'user', pending = null, currentName = '';
+function show(step){ ['stepName','stepCam','stepConfirm'].forEach(s=>$(s).hidden = s!==step); }
+function capMsg(t){ const m=$('capMsg'); m.textContent=t||''; m.hidden=!t; }
+
+async function startCamera(){
+  stopCamera();
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('sem câmera');
+  stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1920},height:{ideal:1440}},audio:false});
+  const v = $('video'); v.srcObject = stream; v.classList.toggle('mirror', facing==='user');
+  await v.play().catch(()=>{});
+  try { await navigator.wakeLock?.request('screen'); } catch(e){}
+}
+function stopCamera(){ if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
+
+// recorta o centro na proporção 47:62
+function cropToFrame(source, sw, sh, mirror){
+  const target = IMG_W/IMG_H; let cw = sw, ch = sw/target;
+  if (ch > sh){ ch = sh; cw = sh*target; }
+  const sx = (sw-cw)/2, sy = (sh-ch)/2;
+  const outW = Math.round(IMG_W*PX), outH = Math.round(IMG_H*PX);
+  const c = document.createElement('canvas'); c.width=outW; c.height=outH;
+  const g = c.getContext('2d');
+  if (mirror){ g.translate(outW,0); g.scale(-1,1); }
+  g.drawImage(source, sx, sy, cw, ch, 0, 0, outW, outH);
+  return c.toDataURL('image/jpeg', .9);
+}
+
+// Câmera ao vivo só funciona fora do visualizador do Claude (site ou APK).
+const inClaude = !!(window.claude && typeof window.claude.use === 'function');
+const liveCamPossible = !inClaude && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function openDeviceCamera(){ $('fileInput').value=''; $('fileInput').click(); } // precisa rodar direto no toque
+function showFallback(on){ $('fallbackCam').hidden = !on; }
+$('stepName').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const n = $('nameInput').value.trim().replace(/\s+/g,' ');
+  if (!n){ capMsg('Digite o nome da pessoa antes de tirar a foto.'); $('nameInput').focus(); return; }
+  capMsg(''); showFallback(false); currentName = n; $('camName').textContent = n;
+  if (!liveCamPossible){ openDeviceCamera(); return; }
+  try { await startCamera(); show('stepCam'); }
+  catch(err){
+    capMsg('Não consegui abrir a câmera aqui. Libere o acesso à câmera nas permissões do navegador ou use o botão abaixo.');
+    showFallback(true);
+  }
+});
+$('fileInput').addEventListener('change', async ()=>{
+  const f = $('fileInput').files[0]; if (!f) return;
+  if (!currentName){ const n=$('nameInput').value.trim().replace(/\s+/g,' '); if(!n){ capMsg('Digite o nome da pessoa antes de tirar a foto.'); return; } currentName=n; }
+  showFallback(false); capMsg('');
+  try {
+    const url = URL.createObjectURL(f); const img = await loadImg(url);
+    const src = cropToFrame(img, img.naturalWidth, img.naturalHeight, false); URL.revokeObjectURL(url);
+    await preview(src);
+  } catch(e){ capMsg('Não consegui abrir essa imagem. Tente tirar a foto de novo.'); }
+});
+$('switchBtn').addEventListener('click', async ()=>{
+  facing = facing==='user' ? 'environment' : 'user';
+  try { await startCamera(); } catch(e){ capMsg('Este aparelho não deixou trocar de câmera.'); }
+});
+$('cancelCamBtn').addEventListener('click', ()=>{ stopCamera(); show('stepName'); });
+
+let shooting = false;
+$('shutterBtn').addEventListener('click', async ()=>{
+  if (shooting) return; shooting = true;
+  if ($('timerChk').checked){
+    const cd = $('countdown'); cd.hidden=false;
+    for (let i=3;i>0;i--){ cd.textContent=i; await new Promise(r=>setTimeout(r,1000)); }
+    cd.hidden=true;
+  }
+  const v = $('video'); const fl = $('flash'); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
+  const src = cropToFrame(v, v.videoWidth, v.videoHeight, facing==='user');
+  stopCamera(); shooting = false;
+  await preview(src);
+});
+
+async function preview(src){
+  pending = {id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), name: currentName, src, created: Date.now()};
+  const r = await renderPolaroid(pending);
+  $('confirmImg').src = r.up; show('stepConfirm');
+}
+$('retakeBtn').addEventListener('click', async ()=>{
+  if (pending) cache.delete(pending.id); pending=null;
+  if (!liveCamPossible){ openDeviceCamera(); return; }
+  try { await startCamera(); show('stepCam'); } catch(e){ show('stepName'); showFallback(true); }
+});
+$('keepBtn').addEventListener('click', async ()=>{
+  if (!pending) return;
+  photos.push(pending);
+  const ok = await DB.put(pending);
+  if (!ok && storageOk){ storageOk=false; }
+  pending = null; $('nameInput').value=''; show('stepName');
+  capMsg(storageOk ? '' : 'Atenção: este navegador não está guardando as fotos. Baixe o PDF antes de fechar a página.');
+  renderSheets(); $('nameInput').focus();
+});
+
+// ---------- PDF ----------
+function pdfMsg(t, ok){ const m=$('pdfMsg'); m.textContent=t||''; m.hidden=!t; m.classList.toggle('ok',!!ok); }
+async function getDownloads(){
+  if (window.claude && typeof window.claude.use === 'function'){ try { return await window.claude.use('downloads'); } catch(e){ return null; } }
+  return undefined; // fora do Claude (arquivo aberto direto no navegador)
+}
+function blobToBase64(b){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(b); }); }
+async function saveFile(filename, blob){
+  if (inClaude){
+    const dl = await getDownloads();
+    if (!dl){ pdfMsg('Este visualizador não permite baixar arquivos.'); return; }
+    try { await dl.save({filename, data: blob}); pdfMsg('PDF salvo.', true); }
+    catch(e){ if (e && e.code !== 'declined') pdfMsg('Não foi possível salvar o PDF agora. Tente de novo em instantes.'); }
+    return;
+  }
+  if (window.AndroidBridge && AndroidBridge.saveFile){ // APK Android
+    const r = AndroidBridge.saveFile(filename, await blobToBase64(blob), 'application/pdf');
+    pdfMsg(r==='error' ? 'Não consegui salvar o PDF.' : 'PDF salvo em Downloads › Cabine Polaroide.', r!=='error'); return;
+  }
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  const file = new File([blob], filename, {type:'application/pdf'});
+  if (isIOS && navigator.canShare && navigator.canShare({files:[file]})){ // iPhone: menu de compartilhar
+    try { await navigator.share({files:[file], title: filename}); pdfMsg('Pronto. Escolha "Salvar em Arquivos" ou "Imprimir".', true); }
+    catch(e){ if (e && e.name!=='AbortError') pdfMsg('Não consegui abrir o menu de compartilhar.'); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  pdfMsg('PDF baixado.', true);
+}
+$('pdfBtn').addEventListener('click', async ()=>{
+  const btn = $('pdfBtn'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Gerando…'; pdfMsg('');
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:'a4', orientation:'portrait', compress:true});
+    const slots = LAYOUTS[layoutKey]; const per = slots.length;
+    for (let i=0;i<photos.length;i++){
+      if (i>0 && i%per===0) doc.addPage('a4','portrait');
+      const sl = slots[i%per]; const r = await renderPolaroid(photos[i]);
+      doc.addImage(sl.rot ? r.rot : r.up, 'JPEG', sl.x, sl.y, sl.w, sl.h, undefined, 'FAST');
+    }
+    const d = new Date(); const pad = n=>String(n).padStart(2,'0');
+    const filename = `polaroides-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.pdf`;
+    const blob = doc.output('blob');
+    await saveFile(filename, blob);
+  } catch(e){ pdfMsg('Erro ao gerar o PDF. Tente de novo.'); }
+  btn.textContent = label; btn.disabled = photos.length===0;
+});
+
+// ---------- início ----------
+(async ()=>{
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
+  renderSheets();
+  const saved = await DB.all();
+  if (saved === null){ storageOk = false; }
+  else { photos = saved.sort((a,b)=>a.created-b.created); renderSheets(); }
+})();
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator && location.protocol !== "file:" && !window.AndroidBridge) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
