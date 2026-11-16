@@ -47,11 +47,29 @@ h2{font-family:var(--f-display);font-size:1.1rem;margin:0}
 .grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:start}
 @media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
 .grid.locked{grid-template-columns:minmax(0,440px);justify-content:center}
-.vault{border-top:1px solid var(--line);padding-top:14px;display:grid;gap:10px}
-.vault .count-line{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem;margin:0}
+.leftcol{display:grid;gap:20px;min-width:0;align-content:start}
 .pwbox{display:grid;gap:8px}
-.pwbox input{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
-.pwbox input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=password],select{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
+input[type=password]:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field{display:grid;gap:6px}
+.pickrow{display:flex;gap:8px;align-items:stretch}
+.pickrow select{flex:1 1 auto;min-width:0}
+.pickrow button{flex:0 0 auto}
+.albums{display:grid;gap:10px}
+.album{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px;background:var(--surface-2)}
+.album-head{display:flex;align-items:center;gap:12px}
+.album-info{flex:1;min-width:0}
+.album-name{font-family:var(--f-display);font-weight:700;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.album-meta{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lockchip{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--fg)}
+.lockchip svg{width:11px;height:11px}
+.album.current{border-color:var(--accent)}
+.newalbum{border:1px dashed var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}
+.settings{display:grid;gap:16px;padding-top:10px}
+.setgroup{display:grid;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.setgroup:last-child{border-bottom:0;padding-bottom:0}
+.setgroup h3{font-size:.9rem;margin:0;font-family:var(--f-display)}
+.danger{color:var(--danger)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px;min-width:0}
 label{font-weight:600;font-size:.9rem}
 input[type=text]{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
@@ -119,15 +137,24 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
   <header>
     <div>
       <h1>Cabine Polaroide</h1>
-      <p class="sub">Digite o nome, tire a foto e o app monta as folhas A4 para imprimir.</p>
+      <p class="sub">Crie um álbum, digite o nome, tire a foto: cada álbum vira um PDF com folhas A4 para imprimir.</p>
     </div>
     <div class="spec">Foto 5,5 × 8,5 cm · Folha A4 21 × 29,7 cm</div>
   </header>
 
   <div class="grid locked" id="mainGrid">
-    <!-- coluna: nova foto -->
+    <div class="leftcol">
+    <!-- nova foto -->
     <section class="panel" id="capturePanel" aria-labelledby="hNova">
       <h2 id="hNova">Nova foto</h2>
+
+      <div class="field" id="albumPick">
+        <label for="albumSelect">Álbum</label>
+        <div class="pickrow">
+          <select id="albumSelect"></select>
+          <button type="button" id="newAlbumFromCap">Novo álbum</button>
+        </div>
+      </div>
 
       <form id="stepName" class="panel" style="padding:0;border:0;background:none">
         <label for="nameInput">Nome da pessoa</label>
@@ -158,34 +185,52 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
         <img id="confirmImg" alt="Prévia da foto polaroide">
         <div class="row" style="width:100%">
           <button type="button" id="retakeBtn">Tirar de novo</button>
-          <button type="button" class="primary" id="keepBtn">Salvar na folha</button>
+          <button type="button" class="primary" id="keepBtn">Salvar no álbum</button>
         </div>
       </div>
 
       <input type="file" id="fileInput" accept="image/*" capture="user" hidden>
       <p class="msg" id="capMsg" hidden></p>
-
-      <div class="vault" id="vault">
-        <p class="count-line" id="savedLine">Nenhuma foto guardada ainda.</p>
-        <button type="button" id="openSheetsBtn">Ver folhas A4</button>
-        <form class="pwbox" id="pwForm" hidden>
-          <label for="pwInput">Senha de acesso</label>
-          <input id="pwInput" type="password" autocomplete="current-password" enterkeyhint="go">
-          <div class="row">
-            <button type="button" id="pwCancel">Cancelar</button>
-            <button type="submit" class="primary">Entrar</button>
-          </div>
-          <p class="msg" id="pwMsg" hidden></p>
-        </form>
-      </div>
     </section>
 
-    <!-- coluna: folhas -->
-    <section class="panel" id="sheetsPanel" aria-labelledby="hFolhas" hidden>
+    <!-- álbuns -->
+    <section class="panel" id="albumsPanel" aria-labelledby="hAlbuns">
       <div class="toolbar">
-        <div>
-          <h2 id="hFolhas">Folhas A4</h2>
-          <div class="stats" id="stats">0 fotos</div>
+        <h2 id="hAlbuns">Álbuns</h2>
+        <button type="button" id="newAlbumBtn">Novo álbum</button>
+      </div>
+      <p class="hint">Cada álbum vira um PDF com as folhas A4. Um álbum pode ter senha para abrir.</p>
+
+      <form class="newalbum" id="newAlbumForm" hidden>
+        <div class="field">
+          <label for="naName">Nome do álbum</label>
+          <input id="naName" type="text" maxlength="60" autocomplete="off" placeholder="Ex.: Aniversário da Júlia">
+        </div>
+        <div class="field">
+          <label for="naPw">Senha (opcional)</label>
+          <input id="naPw" type="password" autocomplete="new-password" placeholder="Deixe em branco para não ter senha">
+        </div>
+        <div class="field" id="naPw2Wrap" hidden>
+          <label for="naPw2">Repita a senha</label>
+          <input id="naPw2" type="password" autocomplete="new-password">
+        </div>
+        <div class="row">
+          <button type="button" id="naCancel">Cancelar</button>
+          <button type="submit" class="primary">Criar álbum</button>
+        </div>
+        <p class="msg" id="naMsg" hidden></p>
+      </form>
+
+      <div class="albums" id="albumList"></div>
+    </section>
+    </div>
+
+    <!-- álbum aberto -->
+    <section class="panel" id="albumView" aria-labelledby="avName" hidden>
+      <div class="toolbar">
+        <div style="min-width:0">
+          <h2 id="avName"></h2>
+          <div class="stats" id="stats"></div>
         </div>
         <div class="row">
           <div class="seg" role="group" aria-label="Arrumação na folha">
@@ -193,16 +238,44 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
             <button type="button" id="layUp" aria-pressed="false">9, todas em pé</button>
           </div>
           <button class="primary" type="button" id="pdfBtn" disabled>Baixar PDF</button>
-          <button type="button" id="closeSheetsBtn">Fechar</button>
+          <button type="button" id="closeAlbumBtn">Fechar</button>
         </div>
       </div>
       <p class="hint" id="layHint"></p>
       <p class="msg" id="pdfMsg" hidden></p>
       <div class="sheets" id="sheets"></div>
-      <p class="hint">Na impressora, escolha <b>tamanho real / 100%</b> (não “ajustar à página”) para a foto sair com 5,5 × 8,5 cm. Cada foto tem a moldura branca da polaroide (4 mm nas laterais e em cima, 1,9 cm embaixo com o nome) e um contorno cinza fino: recorte em cima dele.</p>
+      <p class="hint">Na impressora, escolha <b>tamanho real / 100%</b> (não “ajustar à página”) para a foto sair com 5,5 × 8,5 cm. Cada foto tem a moldura branca da polaroide e um contorno cinza fino: recorte em cima dele.</p>
       <details>
-        <summary>Fotos salvas (<span id="countSaved">0</span>)</summary>
+        <summary>Fotos do álbum (<span id="countSaved">0</span>)</summary>
         <div class="list" id="list" style="margin-top:10px"></div>
+      </details>
+      <details id="settingsBox">
+        <summary>Configurações do álbum</summary>
+        <div class="settings">
+          <form class="setgroup" id="renameForm">
+            <h3>Nome</h3>
+            <div class="pickrow">
+              <input id="rnName" type="text" maxlength="60" autocomplete="off" aria-label="Nome do álbum">
+              <button type="submit">Salvar</button>
+            </div>
+          </form>
+          <form class="setgroup" id="pwSetForm">
+            <h3>Senha</h3>
+            <p class="hint" id="pwStatus"></p>
+            <input id="spPw" type="password" autocomplete="new-password" aria-label="Nova senha" placeholder="Nova senha">
+            <input id="spPw2" type="password" autocomplete="new-password" aria-label="Repita a nova senha" placeholder="Repita a nova senha">
+            <div class="row">
+              <button type="submit" class="primary" id="spSave">Salvar senha</button>
+              <button type="button" id="spRemove">Remover senha</button>
+            </div>
+            <p class="msg" id="spMsg" hidden></p>
+          </form>
+          <div class="setgroup">
+            <h3>Apagar álbum</h3>
+            <p class="hint">Apaga o álbum e todas as fotos dele deste aparelho. Não dá para desfazer.</p>
+            <button type="button" class="danger" id="delAlbumBtn">Apagar álbum</button>
+          </div>
+        </div>
       </details>
     </section>
   </div>
@@ -237,30 +310,36 @@ let layoutKey = 'max';
 try { const s = localStorage.getItem('cp-layout'); if (s==='up'||s==='max') layoutKey = s; } catch(e){}
 
 // ---------- armazenamento (IndexedDB, só neste aparelho) ----------
-let photos = []; // {id,name,src,created}
+let photos = []; // {id,name,src,created,albumId}
+let albums = []; // {id,name,created,pwSalt,pwHash}
 const DB = {
   db:null,
   async open(){
     if (this.db) return this.db;
     this.db = await new Promise((res,rej)=>{
-      const r = indexedDB.open('cabine-polaroide',1);
-      r.onupgradeneeded = () => r.result.createObjectStore('photos',{keyPath:'id'});
+      const r = indexedDB.open('cabine-polaroide',2);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos',{keyPath:'id'});
+        if (!d.objectStoreNames.contains('albums')) d.createObjectStore('albums',{keyPath:'id'});
+      };
       r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
     });
     return this.db;
   },
-  async tx(mode, fn){
+  async tx(store, mode, fn){
     const db = await this.open();
     return new Promise((res,rej)=>{
-      const t = db.transaction('photos',mode); const st = t.objectStore('photos');
+      const t = db.transaction(store,mode); const st = t.objectStore(store);
       const out = fn(st); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error);
     });
   },
-  async all(){ try { return (await this.tx('readonly', s=>s.getAll())) || []; } catch(e){ return null; } },
-  async put(p){ try { await this.tx('readwrite', s=>s.put(p)); return true; } catch(e){ return false; } },
-  async del(id){ try { await this.tx('readwrite', s=>s.delete(id)); } catch(e){} }
+  async all(store){ try { return (await this.tx(store,'readonly', s=>s.getAll())) || []; } catch(e){ return null; } },
+  async put(store, v){ try { await this.tx(store,'readwrite', s=>s.put(v)); return true; } catch(e){ return false; } },
+  async del(store, id){ try { await this.tx(store,'readwrite', s=>s.delete(id)); } catch(e){} }
 };
 let storageOk = true;
+const newId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 // ---------- renderização da polaroide ----------
 const cache = new Map(); // id -> {up:dataURL, rot:dataURL}
@@ -293,26 +372,146 @@ async function renderPolaroid(p){
   const out = {up, rot}; cache.set(p.id, out); return out;
 }
 
-// ---------- folhas ----------
+// ---------- utilidades ----------
 const $ = id => document.getElementById(id);
-let unlocked = false;
-function updateSavedLine(){
-  const n = photos.length;
-  $('savedLine').textContent = n===0 ? 'Nenhuma foto guardada ainda.' : `${n} ${n===1?'foto guardada':'fotos guardadas'} neste aparelho.`;
+const clean = t => (t||'').trim().replace(/\s+/g,' ');
+const LOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M4 7V5a4 4 0 1 1 8 0v2h1v8H3V7h1zm2 0h4V5a2 2 0 1 0-4 0v2z"/></svg>';
+const photosOf = id => photos.filter(p=>p.albumId===id);
+const albumById = id => albums.find(a=>a.id===id);
+const plural = (n, um, varios) => `${n} ${n===1?um:varios}`;
+function msg(el, t, kind){ el.textContent=t||''; el.hidden=!t; el.classList.toggle('good', kind==='good'); el.classList.toggle('ok', kind==='ok'); }
+
+async function sha256(t){
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+async function makePw(pw){ const salt = newId()+newId(); return {pwSalt:salt, pwHash: await sha256(salt+':'+pw)}; }
+async function checkPw(a, pw){ return !!a.pwHash && (await sha256(a.pwSalt+':'+pw)) === a.pwHash; }
+
+// ---------- álbum escolhido para as fotos novas ----------
+let captureAlbumId = null;
+try { captureAlbumId = localStorage.getItem('cp-album'); } catch(e){}
+function setCaptureAlbum(id){ captureAlbumId = id; try{ localStorage.setItem('cp-album', id||''); }catch(e){} renderPicker(); renderAlbumList(); }
+function renderPicker(){
+  const sel = $('albumSelect'); sel.replaceChildren();
+  if (!albums.length){
+    const o = document.createElement('option'); o.value=''; o.textContent='Nenhum álbum: crie um'; sel.appendChild(o); sel.disabled = true; return;
+  }
+  sel.disabled = false;
+  if (!albumById(captureAlbumId)) captureAlbumId = albums[albums.length-1].id;
+  albums.forEach(a=>{ const o=document.createElement('option'); o.value=a.id; o.textContent=a.name; sel.appendChild(o); });
+  sel.value = captureAlbumId;
+}
+$('albumSelect').addEventListener('change', e=>setCaptureAlbum(e.target.value));
+
+// ---------- lista de álbuns ----------
+let openAlbumId = null;
+function renderAlbumList(){
+  const host = $('albumList'); host.replaceChildren();
+  if (!albums.length){
+    const p = document.createElement('p'); p.className='empty-note';
+    p.textContent = 'Nenhum álbum ainda. Crie o primeiro com o nome do evento: as fotos vão para ele.';
+    host.appendChild(p); return;
+  }
+  [...albums].reverse().forEach(a=>{
+    const card = document.createElement('div'); card.className = 'album' + (a.id===captureAlbumId ? ' current' : '');
+    const head = document.createElement('div'); head.className='album-head';
+    const info = document.createElement('div'); info.className='album-info';
+    const nm = document.createElement('div'); nm.className='album-name'; nm.textContent = a.name;
+    const meta = document.createElement('div'); meta.className='album-meta';
+    const n = photosOf(a.id).length;
+    const cnt = document.createElement('span'); cnt.textContent = plural(n,'foto','fotos'); meta.appendChild(cnt);
+    if (a.pwHash){ const ch=document.createElement('span'); ch.className='lockchip'; ch.innerHTML = LOCK_SVG; ch.append('Com senha'); meta.appendChild(ch); }
+    if (a.id===captureAlbumId){ const c=document.createElement('span'); c.textContent='· recebendo as fotos novas'; meta.appendChild(c); }
+    info.append(nm, meta);
+    const open = document.createElement('button'); open.type='button'; open.textContent = a.id===openAlbumId ? 'Aberto' : 'Abrir'; open.disabled = a.id===openAlbumId;
+    head.append(info, open); card.appendChild(head);
+
+    if (a.pwHash){
+      const f = document.createElement('form'); f.className='pwbox'; f.hidden = true;
+      const lb = document.createElement('label'); lb.textContent='Senha do álbum'; const pid = 'pw-'+a.id; lb.htmlFor = pid;
+      const inp = document.createElement('input'); inp.type='password'; inp.id=pid; inp.autocomplete='current-password'; inp.enterKeyHint='go';
+      const row = document.createElement('div'); row.className='row';
+      const cancel = document.createElement('button'); cancel.type='button'; cancel.textContent='Cancelar';
+      const ok = document.createElement('button'); ok.type='submit'; ok.className='primary'; ok.textContent='Entrar';
+      row.append(cancel, ok);
+      const m = document.createElement('p'); m.className='msg'; m.hidden=true;
+      f.append(lb, inp, row, m); card.appendChild(f);
+      open.addEventListener('click', ()=>{ f.hidden=false; open.hidden=true; inp.focus(); });
+      cancel.addEventListener('click', ()=>{ f.hidden=true; open.hidden=false; inp.value=''; msg(m,''); });
+      f.addEventListener('submit', async e=>{
+        e.preventDefault();
+        if (!inp.value){ msg(m,'Digite a senha.'); return; }
+        let good=false;
+        try { good = await checkPw(a, inp.value); } catch(err){ msg(m,'Este navegador não conseguiu conferir a senha. Abra o app pelo link https.'); return; }
+        if (good) openAlbum(a.id); else { msg(m,'Senha incorreta. Tente de novo.'); inp.select(); }
+      });
+    } else {
+      open.addEventListener('click', ()=>openAlbum(a.id));
+    }
+    host.appendChild(card);
+  });
+}
+
+// ---------- criar álbum ----------
+function showNewAlbum(){
+  const f = $('newAlbumForm'); f.hidden=false; $('newAlbumBtn').hidden=true;
+  f.scrollIntoView({behavior:'smooth', block:'center'}); $('naName').focus();
+}
+function hideNewAlbum(){ const f=$('newAlbumForm'); f.reset(); f.hidden=true; $('naPw2Wrap').hidden=true; $('newAlbumBtn').hidden=false; msg($('naMsg'),''); }
+$('newAlbumBtn').addEventListener('click', showNewAlbum);
+$('newAlbumFromCap').addEventListener('click', showNewAlbum);
+$('naCancel').addEventListener('click', hideNewAlbum);
+$('naPw').addEventListener('input', ()=>{ $('naPw2Wrap').hidden = !$('naPw').value; });
+$('newAlbumForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const name = clean($('naName').value), pw = $('naPw').value, pw2 = $('naPw2').value;
+  if (!name){ msg($('naMsg'),'Dê um nome ao álbum.'); $('naName').focus(); return; }
+  if (pw && pw !== pw2){ msg($('naMsg'),'As duas senhas não são iguais.'); $('naPw2').focus(); return; }
+  const a = {id:newId(), name, created:Date.now(), pwSalt:null, pwHash:null};
+  if (pw){ try { Object.assign(a, await makePw(pw)); } catch(err){ msg($('naMsg'),'Este navegador não conseguiu criar a senha. Abra o app pelo link https.'); return; } }
+  albums.push(a); await DB.put('albums', a);
+  hideNewAlbum(); setCaptureAlbum(a.id);
+  msg($('capMsg'), `Álbum "${a.name}" criado. As próximas fotos vão para ele.`, 'good');
+  $('capturePanel').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+// ---------- álbum aberto ----------
+function openAlbum(id){
+  openAlbumId = id; $('albumView').hidden=false; $('mainGrid').classList.remove('locked');
+  $('settingsBox').open = false; msg($('pdfMsg'),''); msg($('spMsg'),'');
+  renderAlbumList(); renderAlbumView();
+  $('albumView').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function closeAlbum(){
+  openAlbumId = null; $('albumView').hidden=true; $('mainGrid').classList.add('locked');
+  $('sheets').replaceChildren(); $('list').replaceChildren(); renderAlbumList();
+}
+$('closeAlbumBtn').addEventListener('click', closeAlbum);
+
+function renderAlbumView(){
+  const a = albumById(openAlbumId); if (!a){ closeAlbum(); return; }
+  $('avName').textContent = a.name;
+  $('rnName').value = a.name;
+  $('pwStatus').textContent = a.pwHash ? 'Este álbum tem senha. Para trocar, digite a nova senha duas vezes.' : 'Este álbum não tem senha: qualquer pessoa com o app aberto consegue ver. Crie uma senha abaixo.';
+  $('spSave').textContent = a.pwHash ? 'Trocar senha' : 'Adicionar senha';
+  $('spRemove').hidden = !a.pwHash;
+  renderSheets();
+}
+
 async function renderSheets(){
-  updateSavedLine();
-  if (!unlocked) return;
+  const a = albumById(openAlbumId); if (!a) return;
+  const ph = photosOf(a.id);
   const slots = LAYOUTS[layoutKey]; const per = slots.length;
-  const nSheets = Math.max(1, Math.ceil(photos.length/per));
+  const nSheets = Math.max(1, Math.ceil(ph.length/per));
   $('layMax').setAttribute('aria-pressed', layoutKey==='max');
   $('layUp').setAttribute('aria-pressed', layoutKey==='up');
   $('layHint').textContent = layoutKey==='max'
     ? 'Cabem 11 por folha: 6 em pé e 5 deitadas na coluna da direita. É o máximo que cabe sem cortar nenhuma.'
     : 'Cabem 9 por folha, todas na mesma direção. Sobra mais papel, mas fica mais fácil de recortar.';
-  const nf = photos.length;
+  const nf = ph.length;
   $('stats').textContent = nf===0 ? 'Nenhuma foto ainda' :
-    `${nf} ${nf===1?'foto':'fotos'} · ${Math.ceil(nf/per)} ${Math.ceil(nf/per)===1?'folha':'folhas'} · ${per} por folha`;
+    `${plural(nf,'foto','fotos')} · ${plural(Math.ceil(nf/per),'folha','folhas')} · ${per} por folha`;
   $('pdfBtn').disabled = nf===0;
 
   const host = $('sheets'); const frag = document.createDocumentFragment();
@@ -320,7 +519,7 @@ async function renderSheets(){
     const box = document.createElement('div'); box.className='sheetbox';
     const sh = document.createElement('div'); sh.className='sheet';
     for (let i=0;i<per;i++){
-      const sl = slots[i]; const p = photos[s*per+i];
+      const sl = slots[i]; const p = ph[s*per+i];
       const d = document.createElement('div'); d.className='slot'+(p?'':' empty');
       Object.assign(d.style,{left:sl.x/A4W*100+'%',top:sl.y/A4H*100+'%',width:sl.w/A4W*100+'%',height:sl.h/A4H*100+'%'});
       if (p){ const im = document.createElement('img'); im.alt = 'Foto de '+p.name; d.appendChild(im);
@@ -334,14 +533,14 @@ async function renderSheets(){
     box.append(sh, lb); frag.appendChild(box);
   }
   host.replaceChildren(frag);
-  if (nf===0){ const n=document.createElement('p'); n.className='empty-note'; n.textContent='Os espaços tracejados mostram onde cada foto vai entrar. Tire a primeira foto ao lado.'; host.appendChild(n); }
-  renderList();
+  if (nf===0){ const n=document.createElement('p'); n.className='empty-note'; n.textContent='Os espaços tracejados mostram onde cada foto vai entrar. Escolha este álbum em "Nova foto" e tire a primeira.'; host.appendChild(n); }
+  renderList(ph);
 }
-function renderList(){
-  $('countSaved').textContent = photos.length;
+function renderList(ph){
+  $('countSaved').textContent = ph.length;
   const l = $('list'); l.replaceChildren();
-  if (!photos.length){ const p=document.createElement('p'); p.className='empty-note'; p.textContent='Nenhuma foto salva.'; l.appendChild(p); return; }
-  photos.forEach((p,i)=>{
+  if (!ph.length){ const p=document.createElement('p'); p.className='empty-note'; p.textContent='Nenhuma foto neste álbum.'; l.appendChild(p); return; }
+  ph.forEach((p,i)=>{
     const it = document.createElement('div'); it.className='item';
     const im = document.createElement('img'); im.alt=''; renderPolaroid(p).then(r=>im.src=r.up);
     const nm = document.createElement('span'); nm.className='nm'; nm.textContent = `${i+1}. ${p.name}`;
@@ -354,16 +553,50 @@ function renderList(){
     it.append(im,nm,del); l.appendChild(it);
   });
 }
-async function removePhoto(id){ photos = photos.filter(p=>p.id!==id); cache.delete(id); await DB.del(id); renderSheets(); }
+async function removePhoto(id){ photos = photos.filter(p=>p.id!==id); cache.delete(id); await DB.del('photos', id); renderSheets(); renderAlbumList(); }
 
 function setLayout(k){ layoutKey=k; try{localStorage.setItem('cp-layout',k);}catch(e){} renderSheets(); }
 $('layMax').addEventListener('click',()=>setLayout('max'));
 $('layUp').addEventListener('click',()=>setLayout('up'));
 
+// configurações: nome, senha, apagar
+$('renameForm').addEventListener('submit', async e=>{
+  e.preventDefault(); const a = albumById(openAlbumId); const n = clean($('rnName').value);
+  if (!a || !n) return; a.name = n; await DB.put('albums', a);
+  renderAlbumView(); renderAlbumList(); renderPicker();
+});
+$('pwSetForm').addEventListener('submit', async e=>{
+  e.preventDefault(); const a = albumById(openAlbumId); if (!a) return;
+  const pw = $('spPw').value, pw2 = $('spPw2').value;
+  if (!pw){ msg($('spMsg'),'Digite a nova senha.'); $('spPw').focus(); return; }
+  if (pw !== pw2){ msg($('spMsg'),'As duas senhas não são iguais.'); $('spPw2').focus(); return; }
+  const had = !!a.pwHash;
+  try { Object.assign(a, await makePw(pw)); } catch(err){ msg($('spMsg'),'Este navegador não conseguiu criar a senha. Abra o app pelo link https.'); return; }
+  await DB.put('albums', a); $('spPw').value=''; $('spPw2').value='';
+  renderAlbumView(); renderAlbumList();
+  msg($('spMsg'), had ? 'Senha trocada.' : 'Senha adicionada. Na próxima vez o álbum vai pedir a senha.', 'good');
+});
+$('spRemove').addEventListener('click', async ()=>{
+  const b = $('spRemove'); const a = albumById(openAlbumId); if (!a) return;
+  if (!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Confirmar remoção?'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Remover senha'; } }, 4000); return; }
+  delete b.dataset.armed; b.textContent='Remover senha';
+  a.pwSalt = null; a.pwHash = null; await DB.put('albums', a);
+  renderAlbumView(); renderAlbumList(); msg($('spMsg'),'Senha removida. O álbum abre sem senha.', 'good');
+});
+$('delAlbumBtn').addEventListener('click', async ()=>{
+  const b = $('delAlbumBtn'); const a = albumById(openAlbumId); if (!a) return;
+  if (!b.dataset.armed){ b.dataset.armed='1'; b.textContent=`Confirmar: apagar "${a.name}" e ${plural(photosOf(a.id).length,'foto','fotos')}`; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Apagar álbum'; } }, 5000); return; }
+  delete b.dataset.armed; b.textContent='Apagar álbum';
+  for (const p of photosOf(a.id)){ cache.delete(p.id); await DB.del('photos', p.id); }
+  photos = photos.filter(p=>p.albumId!==a.id);
+  albums = albums.filter(x=>x.id!==a.id); await DB.del('albums', a.id);
+  closeAlbum(); renderPicker(); renderAlbumList();
+});
+
 // ---------- captura ----------
 let stream = null, facing = 'user', pending = null, currentName = '';
-function show(step){ ['stepName','stepCam','stepConfirm'].forEach(s=>$(s).hidden = s!==step); }
-function capMsg(t){ const m=$('capMsg'); m.textContent=t||''; m.hidden=!t; m.classList.toggle('good', /salva\.$/.test(t||'')); }
+function show(step){ ['stepName','stepCam','stepConfirm'].forEach(s=>$(s).hidden = s!==step); $('albumPick').hidden = step!=='stepName'; }
+function capMsg(t, kind){ msg($('capMsg'), t, kind); }
 
 async function startCamera(){
   stopCamera();
@@ -393,9 +626,14 @@ const inClaude = !!(window.claude && typeof window.claude.use === 'function');
 const liveCamPossible = !inClaude && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 function openDeviceCamera(){ $('fileInput').value=''; $('fileInput').click(); } // precisa rodar direto no toque
 function showFallback(on){ $('fallbackCam').hidden = !on; }
+function needAlbum(){
+  if (albumById(captureAlbumId)) return false;
+  capMsg('Crie um álbum antes de tirar a primeira foto.'); showNewAlbum(); return true;
+}
 $('stepName').addEventListener('submit', async e=>{
   e.preventDefault();
-  const n = $('nameInput').value.trim().replace(/\s+/g,' ');
+  if (needAlbum()) return;
+  const n = clean($('nameInput').value);
   if (!n){ capMsg('Digite o nome da pessoa antes de tirar a foto.'); $('nameInput').focus(); return; }
   capMsg(''); showFallback(false); currentName = n; $('camName').textContent = n;
   if (!liveCamPossible){ openDeviceCamera(); return; }
@@ -407,7 +645,8 @@ $('stepName').addEventListener('submit', async e=>{
 });
 $('fileInput').addEventListener('change', async ()=>{
   const f = $('fileInput').files[0]; if (!f) return;
-  if (!currentName){ const n=$('nameInput').value.trim().replace(/\s+/g,' '); if(!n){ capMsg('Digite o nome da pessoa antes de tirar a foto.'); return; } currentName=n; }
+  if (needAlbum()) return;
+  if (!currentName){ const n=clean($('nameInput').value); if(!n){ capMsg('Digite o nome da pessoa antes de tirar a foto.'); return; } currentName=n; }
   showFallback(false); capMsg('');
   try {
     const url = URL.createObjectURL(f); const img = await loadImg(url);
@@ -436,7 +675,7 @@ $('shutterBtn').addEventListener('click', async ()=>{
 });
 
 async function preview(src){
-  pending = {id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), name: currentName, src, created: Date.now()};
+  pending = {id: newId(), name: currentName, src, created: Date.now(), albumId: captureAlbumId};
   const r = await renderPolaroid(pending);
   $('confirmImg').src = r.up; show('stepConfirm');
 }
@@ -447,16 +686,18 @@ $('retakeBtn').addEventListener('click', async ()=>{
 });
 $('keepBtn').addEventListener('click', async ()=>{
   if (!pending) return;
-  photos.push(pending);
-  const ok = await DB.put(pending);
-  if (!ok && storageOk){ storageOk=false; }
-  pending = null; $('nameInput').value=''; show('stepName');
-  capMsg(storageOk ? `Foto de ${photos[photos.length-1].name} salva.` : 'Atenção: este navegador não está guardando as fotos. Baixe o PDF antes de fechar a página.');
-  renderSheets(); $('nameInput').focus();
+  const p = pending; photos.push(p);
+  const ok = await DB.put('photos', p);
+  if (!ok) storageOk = false;
+  pending = null; currentName = ''; $('nameInput').value=''; show('stepName');
+  const a = albumById(p.albumId);
+  capMsg(storageOk ? `Foto de ${p.name} salva no álbum "${a ? a.name : ''}".` : 'Atenção: este navegador não está guardando as fotos. Baixe o PDF antes de fechar a página.', storageOk ? 'good' : '');
+  renderAlbumList(); if (openAlbumId===p.albumId) renderSheets();
+  $('nameInput').focus();
 });
 
 // ---------- PDF ----------
-function pdfMsg(t, ok){ const m=$('pdfMsg'); m.textContent=t||''; m.hidden=!t; m.classList.toggle('ok',!!ok); }
+function pdfMsg(t, ok){ msg($('pdfMsg'), t, ok ? 'ok' : ''); }
 async function getDownloads(){
   if (window.claude && typeof window.claude.use === 'function'){ try { return await window.claude.use('downloads'); } catch(e){ return null; } }
   return undefined; // fora do Claude (arquivo aberto direto no navegador)
@@ -485,60 +726,44 @@ async function saveFile(filename, blob){
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   pdfMsg('PDF baixado.', true);
 }
+function slug(t){ return (t||'album').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase().slice(0,50) || 'album'; }
 $('pdfBtn').addEventListener('click', async ()=>{
+  const a = albumById(openAlbumId); if (!a) return;
+  const ph = photosOf(a.id);
   const btn = $('pdfBtn'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Gerando…'; pdfMsg('');
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({unit:'mm', format:'a4', orientation:'portrait', compress:true});
+    doc.setProperties({title: a.name});
     const slots = LAYOUTS[layoutKey]; const per = slots.length;
-    for (let i=0;i<photos.length;i++){
+    for (let i=0;i<ph.length;i++){
       if (i>0 && i%per===0) doc.addPage('a4','portrait');
-      const sl = slots[i%per]; const r = await renderPolaroid(photos[i]);
+      const sl = slots[i%per]; const r = await renderPolaroid(ph[i]);
       doc.addImage(sl.rot ? r.rot : r.up, 'JPEG', sl.x, sl.y, sl.w, sl.h, undefined, 'FAST');
     }
     const d = new Date(); const pad = n=>String(n).padStart(2,'0');
-    const filename = `polaroides-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.pdf`;
-    const blob = doc.output('blob');
-    await saveFile(filename, blob);
+    const filename = `${slug(a.name)}-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.pdf`;
+    await saveFile(filename, doc.output('blob'));
   } catch(e){ pdfMsg('Erro ao gerar o PDF. Tente de novo.'); }
-  btn.textContent = label; btn.disabled = photos.length===0;
+  btn.textContent = label; btn.disabled = photosOf(a.id).length===0;
 });
-
-// ---------- acesso às folhas (senha) ----------
-const SENHA_SHA256 = '2c4636c804ec7dc2dfbd83f532e657abd72ed9a1a13359ca22eed5780dd4a16d';
-async function sha256(t){
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
-}
-function pwMsg(t){ const m=$('pwMsg'); m.textContent=t||''; m.hidden=!t; }
-function setUnlocked(on){
-  unlocked = on;
-  $('sheetsPanel').hidden = !on;
-  $('mainGrid').classList.toggle('locked', !on);
-  $('openSheetsBtn').hidden = on; $('pwForm').hidden = true; $('pwInput').value=''; pwMsg('');
-  if (on){ renderSheets(); $('sheetsPanel').scrollIntoView({behavior:'smooth', block:'start'}); }
-  else { $('sheets').replaceChildren(); $('list').replaceChildren(); }
-}
-$('openSheetsBtn').addEventListener('click', ()=>{ $('openSheetsBtn').hidden=true; $('pwForm').hidden=false; pwMsg(''); $('pwInput').focus(); });
-$('pwCancel').addEventListener('click', ()=>{ $('pwForm').hidden=true; $('openSheetsBtn').hidden=false; $('pwInput').value=''; pwMsg(''); });
-$('pwForm').addEventListener('submit', async e=>{
-  e.preventDefault();
-  const v = $('pwInput').value.trim().toLowerCase();
-  if (!v){ pwMsg('Digite a senha.'); return; }
-  let ok = false;
-  try { ok = (await sha256(v)) === SENHA_SHA256; } catch(err){ pwMsg('Este navegador não conseguiu conferir a senha. Abra o app pelo link https.'); return; }
-  if (ok) setUnlocked(true);
-  else { pwMsg('Senha incorreta. Tente de novo.'); $('pwInput').select(); }
-});
-$('closeSheetsBtn').addEventListener('click', ()=>setUnlocked(false));
 
 // ---------- início ----------
 (async ()=>{
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
-  renderSheets();
-  const saved = await DB.all();
-  if (saved === null){ storageOk = false; }
-  else { photos = saved.sort((a,b)=>a.created-b.created); renderSheets(); }
+  renderPicker(); renderAlbumList();
+  const [ph, al] = await Promise.all([DB.all('photos'), DB.all('albums')]);
+  if (ph === null || al === null){ storageOk = false; return; }
+  albums = al.sort((a,b)=>a.created-b.created);
+  photos = ph.sort((a,b)=>a.created-b.created);
+  // fotos da versão anterior (sem álbum) vão para um álbum próprio
+  const loose = photos.filter(p=>!p.albumId || !albumById(p.albumId));
+  if (loose.length){
+    const a = {id:newId(), name:'Fotos anteriores', created:Date.now(), pwSalt:null, pwHash:null};
+    albums.push(a); await DB.put('albums', a);
+    for (const p of loose){ p.albumId = a.id; await DB.put('photos', p); }
+  }
+  renderPicker(); renderAlbumList();
 })();
 })();
 </script>

@@ -1,5 +1,5 @@
 // Service worker da Cabine Polaroide: guarda o app no celular para abrir sem internet.
-const CACHE = "cabine-9cfaca8114";
+const CACHE = "cabine-14ffc07db1";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "vendor/jspdf.umd.min.js", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
