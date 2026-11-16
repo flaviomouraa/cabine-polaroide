@@ -85,7 +85,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .shutter{width:68px;height:68px;border-radius:50%;background:#fff;border:5px solid #9aa0a8;padding:0}
 .shutter:active{transform:scale(.95)}
 .ghost{background:transparent;border-color:#3a3f46;color:#e6e8eb;font-size:.85rem}
-.chk{display:flex;align-items:center;gap:6px;color:#c9ced5;font-size:.85rem;font-weight:500}
+.timer{display:flex;align-items:center;gap:10px;color:#c9ced5;font-size:.85rem;font-weight:500}
+.timer .opts{display:inline-flex;border:1px solid #3a3f46;border-radius:10px;overflow:hidden}
+.timer button{border:0;border-radius:0;background:transparent;color:#e6e8eb;font-weight:500;font-size:.85rem;padding:7px 12px}
+.timer button[aria-pressed="true"]{background:#e6e8eb;color:#111}
 
 /* confirmação */
 .confirm{display:grid;justify-items:center;gap:14px}
@@ -160,7 +163,14 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
             <button class="shutter" type="button" id="shutterBtn" aria-label="Tirar foto"></button>
             <button class="ghost" type="button" id="cancelCamBtn">Cancelar</button>
           </div>
-          <label class="chk"><input type="checkbox" id="timerChk"> Esperar 3 segundos</label>
+          <div class="timer" role="group" aria-label="Temporizador">
+            <span>Temporizador</span>
+            <div class="opts">
+              <button type="button" data-t="0" aria-pressed="true">Sem</button>
+              <button type="button" data-t="3" aria-pressed="false">3 s</button>
+              <button type="button" data-t="5" aria-pressed="false">5 s</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -643,12 +653,17 @@ $('switchBtn').addEventListener('click', async ()=>{
 });
 $('cancelCamBtn').addEventListener('click', ()=>{ stopCamera(); show('stepName'); });
 
+let timerSecs = 0;
+try { const t = parseInt(localStorage.getItem('cp-timer'),10); if (t===3||t===5) timerSecs = t; } catch(e){}
+function renderTimer(){ document.querySelectorAll('.timer button').forEach(b=>b.setAttribute('aria-pressed', String(+b.dataset.t===timerSecs))); }
+document.querySelectorAll('.timer button').forEach(b=>b.addEventListener('click', ()=>{ timerSecs = +b.dataset.t; try{localStorage.setItem('cp-timer', timerSecs);}catch(e){} renderTimer(); }));
+renderTimer();
 let shooting = false;
 $('shutterBtn').addEventListener('click', async ()=>{
   if (shooting) return; shooting = true;
-  if ($('timerChk').checked){
+  if (timerSecs > 0){
     const cd = $('countdown'); cd.hidden=false;
-    for (let i=3;i>0;i--){ cd.textContent=i; await new Promise(r=>setTimeout(r,1000)); }
+    for (let i=timerSecs;i>0;i--){ cd.textContent=i; await new Promise(r=>setTimeout(r,1000)); }
     cd.hidden=true;
   }
   const v = $('video'); const fl = $('flash'); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
