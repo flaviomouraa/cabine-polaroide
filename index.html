@@ -31,6 +31,12 @@ h2{font-family:var(--f-display);font-size:1.1rem;margin:0}
 .spec{font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
 .grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:start}
 @media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.grid.locked{grid-template-columns:minmax(0,440px);justify-content:center}
+.vault{border-top:1px solid var(--line);padding-top:14px;display:grid;gap:10px}
+.vault .count-line{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem;margin:0}
+.pwbox{display:grid;gap:8px}
+.pwbox input{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
+.pwbox input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px;min-width:0}
 label{font-weight:600;font-size:.9rem}
 input[type=text]{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
@@ -45,6 +51,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .hint{color:var(--muted);font-size:.85rem;margin:0}
 .msg{font-size:.85rem;color:var(--danger);margin:0}
 .msg.ok{color:var(--muted)}
+.msg.good{color:var(--fg)}
 
 /* câmera */
 .cam{background:var(--cam);border-radius:12px;padding:14px;display:grid;gap:12px;justify-items:center}
@@ -100,7 +107,7 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
     <div class="spec">Foto 5,5 × 8,5 cm · Folha A4 21 × 29,7 cm</div>
   </header>
 
-  <div class="grid">
+  <div class="grid locked" id="mainGrid">
     <!-- coluna: nova foto -->
     <section class="panel" id="capturePanel" aria-labelledby="hNova">
       <h2 id="hNova">Nova foto</h2>
@@ -141,14 +148,23 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
       <input type="file" id="fileInput" accept="image/*" capture="user" hidden>
       <p class="msg" id="capMsg" hidden></p>
 
-      <details>
-        <summary>Fotos salvas (<span id="countSaved">0</span>)</summary>
-        <div class="list" id="list" style="margin-top:10px"></div>
-      </details>
+      <div class="vault" id="vault">
+        <p class="count-line" id="savedLine">Nenhuma foto guardada ainda.</p>
+        <button type="button" id="openSheetsBtn">Ver folhas A4</button>
+        <form class="pwbox" id="pwForm" hidden>
+          <label for="pwInput">Senha de acesso</label>
+          <input id="pwInput" type="password" autocomplete="current-password" enterkeyhint="go">
+          <div class="row">
+            <button type="button" id="pwCancel">Cancelar</button>
+            <button type="submit" class="primary">Entrar</button>
+          </div>
+          <p class="msg" id="pwMsg" hidden></p>
+        </form>
+      </div>
     </section>
 
     <!-- coluna: folhas -->
-    <section class="panel" aria-labelledby="hFolhas">
+    <section class="panel" id="sheetsPanel" aria-labelledby="hFolhas" hidden>
       <div class="toolbar">
         <div>
           <h2 id="hFolhas">Folhas A4</h2>
@@ -160,12 +176,17 @@ details summary{cursor:pointer;font-weight:600;font-size:.9rem}
             <button type="button" id="layUp" aria-pressed="false">9, todas em pé</button>
           </div>
           <button class="primary" type="button" id="pdfBtn" disabled>Baixar PDF</button>
+          <button type="button" id="closeSheetsBtn">Fechar</button>
         </div>
       </div>
       <p class="hint" id="layHint"></p>
       <p class="msg" id="pdfMsg" hidden></p>
       <div class="sheets" id="sheets"></div>
       <p class="hint">Na impressora, escolha <b>tamanho real / 100%</b> (não “ajustar à página”) para a foto sair com 5,5 × 8,5 cm. Cada foto tem a moldura branca da polaroide (4 mm nas laterais e em cima, 1,9 cm embaixo com o nome) e um contorno cinza fino: recorte em cima dele.</p>
+      <details>
+        <summary>Fotos salvas (<span id="countSaved">0</span>)</summary>
+        <div class="list" id="list" style="margin-top:10px"></div>
+      </details>
     </section>
   </div>
 </div>
@@ -257,7 +278,14 @@ async function renderPolaroid(p){
 
 // ---------- folhas ----------
 const $ = id => document.getElementById(id);
+let unlocked = false;
+function updateSavedLine(){
+  const n = photos.length;
+  $('savedLine').textContent = n===0 ? 'Nenhuma foto guardada ainda.' : `${n} ${n===1?'foto guardada':'fotos guardadas'} neste aparelho.`;
+}
 async function renderSheets(){
+  updateSavedLine();
+  if (!unlocked) return;
   const slots = LAYOUTS[layoutKey]; const per = slots.length;
   const nSheets = Math.max(1, Math.ceil(photos.length/per));
   $('layMax').setAttribute('aria-pressed', layoutKey==='max');
@@ -318,7 +346,7 @@ $('layUp').addEventListener('click',()=>setLayout('up'));
 // ---------- captura ----------
 let stream = null, facing = 'user', pending = null, currentName = '';
 function show(step){ ['stepName','stepCam','stepConfirm'].forEach(s=>$(s).hidden = s!==step); }
-function capMsg(t){ const m=$('capMsg'); m.textContent=t||''; m.hidden=!t; }
+function capMsg(t){ const m=$('capMsg'); m.textContent=t||''; m.hidden=!t; m.classList.toggle('good', /salva\.$/.test(t||'')); }
 
 async function startCamera(){
   stopCamera();
@@ -406,7 +434,7 @@ $('keepBtn').addEventListener('click', async ()=>{
   const ok = await DB.put(pending);
   if (!ok && storageOk){ storageOk=false; }
   pending = null; $('nameInput').value=''; show('stepName');
-  capMsg(storageOk ? '' : 'Atenção: este navegador não está guardando as fotos. Baixe o PDF antes de fechar a página.');
+  capMsg(storageOk ? `Foto de ${photos[photos.length-1].name} salva.` : 'Atenção: este navegador não está guardando as fotos. Baixe o PDF antes de fechar a página.');
   renderSheets(); $('nameInput').focus();
 });
 
@@ -458,6 +486,34 @@ $('pdfBtn').addEventListener('click', async ()=>{
   } catch(e){ pdfMsg('Erro ao gerar o PDF. Tente de novo.'); }
   btn.textContent = label; btn.disabled = photos.length===0;
 });
+
+// ---------- acesso às folhas (senha) ----------
+const SENHA_SHA256 = '2c4636c804ec7dc2dfbd83f532e657abd72ed9a1a13359ca22eed5780dd4a16d';
+async function sha256(t){
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function pwMsg(t){ const m=$('pwMsg'); m.textContent=t||''; m.hidden=!t; }
+function setUnlocked(on){
+  unlocked = on;
+  $('sheetsPanel').hidden = !on;
+  $('mainGrid').classList.toggle('locked', !on);
+  $('openSheetsBtn').hidden = on; $('pwForm').hidden = true; $('pwInput').value=''; pwMsg('');
+  if (on){ renderSheets(); $('sheetsPanel').scrollIntoView({behavior:'smooth', block:'start'}); }
+  else { $('sheets').replaceChildren(); $('list').replaceChildren(); }
+}
+$('openSheetsBtn').addEventListener('click', ()=>{ $('openSheetsBtn').hidden=true; $('pwForm').hidden=false; pwMsg(''); $('pwInput').focus(); });
+$('pwCancel').addEventListener('click', ()=>{ $('pwForm').hidden=true; $('openSheetsBtn').hidden=false; $('pwInput').value=''; pwMsg(''); });
+$('pwForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const v = $('pwInput').value.trim().toLowerCase();
+  if (!v){ pwMsg('Digite a senha.'); return; }
+  let ok = false;
+  try { ok = (await sha256(v)) === SENHA_SHA256; } catch(err){ pwMsg('Este navegador não conseguiu conferir a senha. Abra o app pelo link https.'); return; }
+  if (ok) setUnlocked(true);
+  else { pwMsg('Senha incorreta. Tente de novo.'); $('pwInput').select(); }
+});
+$('closeSheetsBtn').addEventListener('click', ()=>setUnlocked(false));
 
 // ---------- início ----------
 (async ()=>{
